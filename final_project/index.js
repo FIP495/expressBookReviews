@@ -3,13 +3,18 @@ const jwt = require('jsonwebtoken');
 const session = require('express-session')
 const customer_routes = require('./router/auth_users.js').authenticated;
 const genl_routes = require('./router/general.js').general;
+const authenticatedUser = require('./router/general.js').authenticatedUser;
+const sessionManager = require('./session-handler.js');
 
 const app = express();
 
 app.use(express.json());
-app.use("/customer",session({secret:"fingerprint_customer",resave: true, saveUninitialized: true}))
+// in app.use specify root directory for authentication so that in the /login endpoint
+// the session authorization is also used
+app.use("/",session({secret:"fingerprint_customer",resave: true, saveUninitialized: true}))
 
-// Middleware to authenticate requests to "/friends" endpoint
+
+// Middleware to authenticate requests to "/customer" endpoint
 app.use("/customer/auth/*", function auth(req, res, next) {
     // Check if user is logged in and has valid access token
     if (req.session.authorization) {
@@ -29,9 +34,38 @@ app.use("/customer/auth/*", function auth(req, res, next) {
     }
 });
  
+
+// Login endpoint
+app.post("/login", (req, res) => {
+    const username = req.body.username;
+    const password = req.body.password;
+
+    // Check if username or password is missing
+    if (!username || !password) {
+        return res.status(404).json({ message: "Error logging in" });
+    }
+
+    // Authenticate user
+    if (authenticatedUser(username, password)) {
+        // Generate JWT access token
+        let accessToken = jwt.sign({
+            data: password
+        }, 'access', { expiresIn: 60 * 60 });
+        // Store access token and username in session
+        req.session.authorization = {
+            accessToken, username
+        }
+        sessionManager.setSession(req.session);
+        return res.status(200).send("User successfully logged in");
+    } else {
+        return res.status(208).json({ message: "Invalid Login. Check username and password" });
+    }
+});
+
 const PORT =5000;
 
 app.use("/customer", customer_routes);
 app.use("/", genl_routes);
+let msg = "Server is running on port " + PORT;
 
-app.listen(PORT,()=>console.log("Server is running"));
+app.listen(PORT,()=>console.log(msg));

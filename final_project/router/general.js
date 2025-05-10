@@ -3,6 +3,7 @@ let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
+const getUsername = require('../session-handler.js').getUsername
 
 // Check if a user with the given username already exists
 const doesExist = (username) => {
@@ -31,6 +32,7 @@ const authenticatedUser = (username, password) => {
         return false;
     }
 }
+
 public_users.post("/register", (req,res) => {
     const username = req.body.username;
     const password = req.body.password;
@@ -84,4 +86,27 @@ public_users.get('/review/:isbn',function (req, res) {
   return res.status(300).json(books[isbn]["reviews"]);
 });
 
+
+// PUT request: Modify review
+public_users.put("/review/post/:isbn", function(req, res) {
+    const isbn = req.params.isbn;
+    let review = req.body.review;
+    let username = getUsername();
+    let book = books[isbn];
+    let reviews = book["reviews"];
+    console.log(username);
+    console.log(reviews)
+    if (Object.keys(reviews).length == 0) {
+        books[isbn]["reviews"][username] = review;
+        return res.status(300).json(`Review from user ${username} created.`);
+    } else if (username in reviews) {
+        books[isbn]["reviews"][username] = review;
+        return res.status(300).json(`Review from user ${username} updated.`);
+    } else {
+        books[isbn]["reviews"][username] = review;
+        return res.status(300).json(`Review from user ${username} added.`);
+    }
+});
+
 module.exports.general = public_users;
+module.exports.authenticatedUser = authenticatedUser;
